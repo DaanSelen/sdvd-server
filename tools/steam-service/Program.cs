@@ -30,6 +30,7 @@
  *   STEAM_REFRESH_TOKEN=xxx STEAM_USERNAME=user steam-service download
  */
 
+using System;
 using System.Text.Json;
 using SteamService;
 
@@ -189,7 +190,15 @@ return;
 
 async Task DownloadAllAsync()
 {
-    await steamService.DownloadGameAsync(StardewValleyAppId);
+    try
+    {
+        await steamService.DownloadGameAsync(StardewValleyAppId);
+    }
+    catch (Exception ex)
+    {
+        Logger.Log($"[SteamService] Download attempt failed: {ex.Message}");
+        throw;
+    }
 
     // Also download Steamworks SDK for GameServer mode (unless --skip-sdk)
     // This provides steamclient.so needed for SteamGameServerNetworkingSockets
@@ -197,7 +206,16 @@ async Task DownloadAllAsync()
     if (!args.Contains("--skip-sdk"))
     {
         var steamSdkDir = Path.Combine(gameDir, ".steam-sdk");
-        await steamService.DownloadGameAsync(SteamworksSdkAppId, steamSdkDir);
+
+        try
+        {
+            await steamService.DownloadGameAsync(SteamworksSdkAppId, steamSdkDir);
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[SteamService] Download attempt failed: {ex.Message}");
+            throw;
+        }
     }
 }
 

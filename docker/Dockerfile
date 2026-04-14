@@ -8,11 +8,9 @@ ARG SMAPI_VERSION
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS steam-service-builder
 WORKDIR /src
 
-COPY ./tools/steam-service/*.csproj ./
-RUN dotnet restore
-
-COPY ./tools/steam-service/ .
-RUN dotnet publish -c Release -o /app --no-restore
+COPY ./tools/steam-service/ ./
+RUN dotnet restore && \
+    dotnet publish -c Release -o /app --no-restore
 
 # ============================================================================
 # Stage 2: Download game files using steam-service (filtered, no Content folder)
