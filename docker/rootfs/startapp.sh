@@ -111,6 +111,9 @@ init_stardew() {
     # Check if game files exist in the shared volume
     if [ ! -e "${STEAM_AUTH_GAME_EXEC}" ]; then
         echo ""
+        ls -l /data
+        ls -l /data/game
+        ls -l /game
         echo -e "\e[33m╔═══════════════════════════════════════════════════════════════════════╗\e[0m"
         echo -e "\e[33m║  Game files not found! Please run setup first:                        ║\e[0m"
         echo -e "\e[33m║                                                                       ║\e[0m"

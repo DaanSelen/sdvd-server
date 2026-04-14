@@ -5,8 +5,22 @@
 - Docker `>=20`
 - git `>=2`
 - make `>=4`
-- .NET SDK `6`
-- A local installation of Stardew Valley (via Steam)
+- A copy of Stardew Valley (via Steam)
+
+## Requirements Helper
+
+Most of the needed packages needed can be installed with the following command(s).
+
+```
+sudo apt-get update && sudo apt-get install \
+    curl \
+    make
+    
+```
+
+Docker can be installed by following [their documentation](https://docs.docker.com/engine/install/).
+
+Deep development and builing can be done with dotnet installed as well, [see here](https://learn.microsoft.com/en-us/dotnet/core/install/linux).
 
 ## Setup
 

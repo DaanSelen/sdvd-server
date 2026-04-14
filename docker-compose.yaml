@@ -1,7 +1,10 @@
 services:
   # Main game server
   server:
-    image: sdvd/server:${IMAGE_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sdvd/server:local
     container_name: sdvd-server
     stdin_open: true
     tty: true
@@ -20,9 +23,9 @@ services:
       - ./.local-container/settings:/data/settings
     environment:
       # Steam auth service URL (for runtime ticket requests)
-      STEAM_AUTH_URL: "http://steam-auth:3001"
+      STEAM_AUTH_URL: "http://steam-service:3001"
       # Server configuration
-      VNC_PASSWORD: "${VNC_PASSWORD:-}"
+      VNC_PASSWORD: "${VNC_PASSWORD:-sdvd-server}"
       DISABLE_RENDERING: "${DISABLE_RENDERING:-true}"
       # Game settings file path (auto-created with defaults if missing)
       SETTINGS_PATH: "/data/settings/server-settings.json"
@@ -35,16 +38,16 @@ services:
       MAX_LOGIN_ATTEMPTS: "${MAX_LOGIN_ATTEMPTS:-3}"
       AUTH_TIMEOUT_SECONDS: "${AUTH_TIMEOUT_SECONDS:-120}"
     depends_on:
-      steam-auth:
+      steam-service:
         condition: service_healthy
     restart: unless-stopped
 
-  steam-auth:
+  steam-service:
     build:
       context: ./tools/steam-service
       dockerfile: Dockerfile
-    image: sdvd/steam-service:${IMAGE_VERSION:-latest}
-    container_name: sdvd-steam-auth
+    image: sdvd/steam-service:local
+    container_name: sdvd-steam-service
     stdin_open: true
     tty: true
     expose:
@@ -66,7 +69,7 @@ services:
     build:
       context: ./tools/discord-bot
       dockerfile: Dockerfile
-    image: sdvd/discord-bot:${IMAGE_VERSION:-latest}
+    image: sdvd/discord-bot:local
     container_name: sdvd-discord-bot
     environment:
       DISCORD_BOT_TOKEN: "${DISCORD_BOT_TOKEN:-}"

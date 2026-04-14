@@ -12,11 +12,23 @@ endef
 MAKEFLAGS += --no-print-directory
 
 # Constants
-IMAGE_NAME=sdvd/server
-TEST_CLIENT_IMAGE_NAME=sdvd/test-client
 IMAGE_VERSION ?= local
-DOCKERFILE_PATH=docker/Dockerfile
-TEST_CLIENT_DOCKERFILE_PATH=docker/Dockerfile.test-client
+SMAPI_VERSION ?= 4.5.2
+COMPOSE_FILE ?= ./docker-compose.yaml
+
+SERVER_IMAGE_NAME ?= sdvd/server
+SERVER_DOCKERFILE_PATH=./docker/Dockerfile
+
+STEAM_SERVICE_IMAGE_NAME ?= sdvd/steam-service
+STEAM_SERVICE_CONTEXT_PATH ?= ./tools/steam-service
+STEAM_SERVICE_DOCKERFILE_PATH ?= ./tools/steam-service/Dockerfile
+
+DISCORD_BOT_IMAGE_NAME ?= sdvd/discord-bot
+DISCORD_BOT_CONTEXT_PATH ?= ./tools/discord-bot
+DISCORD_BOT_DOCKERFILE_PATH ?= ./tools/discord-bot/Dockerfile
+
+TEST_CLIENT_SERVER_IMAGE_NAME ?= sdvd/test-client
+TEST_CLIENT_SERVER_DOCKERFILE_PATH ?= ./docker/Dockerfile.test-client
 
 # Build configuration (Debug for local, Release for CI/production)
 BUILD_CONFIGURATION ?= Debug
@@ -24,11 +36,18 @@ BUILD_CONFIGURATION ?= Debug
 # Docker build progress output (plain, tty, auto, quiet)
 DOCKER_PROGRESS ?= plain
 
+# Docker cache switch
+DOCKER_CACHE ?= true
+
 # Export IMAGE_VERSION for usage in docker compose commands
 export IMAGE_VERSION
 
 # Export make variables as actual environment variables,
 # so that we can pass them as docker secrets during build
+STEAM_USERNAME ?=
+STEAM_PASSWORD ?=
+STEAM_REFRESH_TOKEN ?=
+
 export STEAM_USERNAME := $(call strip_quotes,STEAM_USERNAME)
 export STEAM_PASSWORD := $(call strip_quotes,STEAM_PASSWORD)
 export STEAM_REFRESH_TOKEN := $(call strip_quotes,STEAM_REFRESH_TOKEN)
@@ -40,83 +59,74 @@ else
     TIMESTAMP := $(shell date -u '+%Y-%m-%dT%H-%M-%S')Z
 endif
 
-# Install development dependencies
-install:
-	@echo Installing development dependencies...
-	@npm ci
-	@echo Setup complete. Git hooks are now active.
-
 # Build docker image (downloads game during build for mod compilation)
 build:
-	@echo Building image `$(IMAGE_NAME):$(IMAGE_VERSION)` with BUILD_CONFIGURATION=$(BUILD_CONFIGURATION)...
+	@echo Building image 1: "$(STEAM_SERVICE_IMAGE_NAME):$(IMAGE_VERSION)"
 	@docker buildx build \
-		--platform=linux/amd64 \
+                -t $(STEAM_SERVICE_IMAGE_NAME):$(IMAGE_VERSION) \
+                $(if $(filter-out local,$(IMAGE_VERSION)),-t $(STEAM_SERVICE_IMAGE_NAME):latest) \
+                -f $(STEAM_SERVICE_DOCKERFILE_PATH) \
+                --load \
+                --progress=$(DOCKER_PROGRESS) \
+                $(STEAM_SERVICE_CONTEXT_PATH)
+	@echo Building process of image 1 has completed.
+	@echo Building image 2: "$(SERVER_IMAGE_NAME):$(IMAGE_VERSION)" with BUILD_CONFIGURATION=$(BUILD_CONFIGURATION)...
+	@docker buildx build \
 		--build-arg BUILD_CONFIGURATION=$(BUILD_CONFIGURATION) \
-		-t $(IMAGE_NAME):$(IMAGE_VERSION) \
-		$(if $(filter-out local,$(IMAGE_VERSION)),-t $(IMAGE_NAME):latest) \
+                --build-arg SMAPI_VERSION=$(SMAPI_VERSION) \
+		-t $(SERVER_IMAGE_NAME):$(IMAGE_VERSION) \
+		$(if $(filter-out local,$(IMAGE_VERSION)),-t $(SERVER_IMAGE_NAME):latest) \
 		--secret id=steam_username,env=STEAM_USERNAME \
 		--secret id=steam_password,env=STEAM_PASSWORD \
 		--secret id=steam_refresh_token,env=STEAM_REFRESH_TOKEN \
-		-f $(DOCKERFILE_PATH) \
+		-f $(SERVER_DOCKERFILE_PATH) \
 		--load \
 		--progress=$(DOCKER_PROGRESS) \
 		.
-	@echo Build complete.
+	@echo Building process of image 2 has completed.
+
+build-all: build
+	@echo Builing image 3: "$(DISCORD_BOT_IMAGE_NAME):$(IMAGE_VERSION)"
+	@docker buildx build \
+                -t $(DISCORD_BOT_IMAGE_NAME):$(IMAGE_VERSION) \
+                $(if $(filter-out local,$(IMAGE_VERSION)),-t $(STEAM_SERVICE_IMAGE_NAME):latest) \
+                -f $(DISCORD_BOT_DOCKERFILE_PATH) \
+                --load \
+                --progress=$(DOCKER_PROGRESS) \
+                $(DISCORD_BOT_CONTEXT_PATH)
+
+# Install the Docker compose
+install:
+	@echo Installing the Stardew Valley Dedicated Server with Docker Compose
+	@docker compose -f $(COMPOSE_FILE) up -d
+	@echo Docker Compose is up. See "docker ps" and "docker compose ls" or check the $(COMPOSE_FILE).
+
+setup:
+	@echo Running steam-auth setup
+	@docker compose -f $(COMPOSE_FILE) run --rm -it steam-service setup
+	@echo Downloaded game files and prepared a ready state
 
 # Build test client docker image (for containerized E2E tests)
 build-test-client:
-	@echo Building test client image `$(TEST_CLIENT_IMAGE_NAME):$(IMAGE_VERSION)`...
+	@echo Building test client image `$(TEST_CLIENT_SERVER_IMAGE_NAME):$(IMAGE_VERSION)`...
 	@docker buildx build \
 		--platform=linux/amd64 \
-		-t $(TEST_CLIENT_IMAGE_NAME):$(IMAGE_VERSION) \
+		-t $(TEST_CLIENT_SERVER_IMAGE_NAME):$(IMAGE_VERSION) \
 		--secret id=steam_username,env=STEAM_USERNAME \
 		--secret id=steam_password,env=STEAM_PASSWORD \
 		--secret id=steam_refresh_token,env=STEAM_REFRESH_TOKEN \
-		-f $(TEST_CLIENT_DOCKERFILE_PATH) \
+		-f $(TEST_CLIENT_SERVER_DOCKERFILE_PATH) \
 		--load \
 		--progress=$(DOCKER_PROGRESS) \
 		.
 	@echo Test client build complete.
 
-# Build and run everything
-up: build
-	@echo Starting server `$(IMAGE_NAME):$(IMAGE_VERSION)`...
-	@docker compose up -d --build
-	@echo Server is now running. Use `make cli` or `make logs` to view output.
-
-setup:
-	@docker compose run --rm -it steam-auth setup
-	@echo Server is now set up. Use `make cli` or `make logs` to view output.
-
-restart:
-	@echo Restarting server `$(IMAGE_NAME):$(IMAGE_VERSION)`...
-	@docker compose restart
-	@echo Server restarted. Use `make cli` or `make logs` to view output.
-
-# Stop the server
-down:
-	@echo Stopping server...
-	@docker compose down --remove-orphans
-
-# Attach to interactive split-pane server CLI
-cli:
-	@docker compose exec server attach-cli
-
-# View server logs (escape sequence to reset colors)
-logs:
-	@docker compose logs -f
-	-@bun -e "process.stdout.write('\x1b[0m')"
-
-dumplogs:
-	@echo "Writing logs to logs_$(TIMESTAMP).txt"
-	@docker compose logs > "logs_$(TIMESTAMP).txt"
-
 # Start docs dev server (extracts OpenAPI spec from Docker image first)
 docs:
-	@echo Extracting OpenAPI spec from $(IMAGE_NAME):$(IMAGE_VERSION) image...
+	@echo Extracting OpenAPI spec from $(SERVER_IMAGE_NAME):$(IMAGE_VERSION) image...
 	@bun -e "require('fs').mkdirSync('docs/assets', { recursive: true })"
 	-@bun -e "try{require('child_process').execSync('docker rm -f openapi-extract',{stdio:'ignore'})}catch(e){}"
-	@docker create --name openapi-extract $(IMAGE_NAME):$(IMAGE_VERSION)
+	@docker create --name openapi-extract $(SERVER_IMAGE_NAME):$(IMAGE_VERSION)
 	@docker cp openapi-extract:/data/openapi.json docs/assets/openapi.json
 	@docker rm openapi-extract
 	@echo OpenAPI spec ready.
@@ -125,8 +135,7 @@ docs:
 # Clean up everything, including all volumes
 clean:
 	@echo Cleaning up...
-	@IMAGE_VERSION=$(IMAGE_VERSION) docker compose down -v
-	-@docker rmi $(IMAGE_NAME):$(IMAGE_VERSION) $(IMAGE_NAME):latest
+	@docker system prune -a --force
 
 # Run tests. Use FILTER to run specific tests:
 #   make test FILTER=PasswordProtection
@@ -146,13 +155,7 @@ help:
 	@echo ""
 	@echo Targets:
 	@echo "  make install  - Install development dependencies (commitlint, git hooks)"
-	@echo "  make setup    - Run first-time Steam authentication and game download"
-	@echo "  make up       - Build and start server"
 	@echo "  make build    - Build docker image"
-	@echo "  make logs     - View server logs"
-	@echo "  make dumplogs - Dump server logs to file on host"
-	@echo "  make cli      - Attach to interactive server console (tmux-based)"
-	@echo "  make down     - Stop the server"
 	@echo "  make docs     - Start docs dev server (requires built image)"
 	@echo "  make clean    - Remove ALL containers, volumes and images"
 	@echo "  make test     - Run E2E tests (use FILTER=X to filter, e.g. FILTER=PasswordProtection)"
