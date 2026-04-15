@@ -7,9 +7,6 @@
 # NOTE: This Dockerfile reuses the game-downloader stage from the main Dockerfile
 # to get game DLLs needed for building the test-client mod.
 
-# Global build arguments
-ARG SMAPI_VERSION=4.4.0
-
 # ============================================================================
 # Stage 1: Build steam-service downloader (same as main Dockerfile)
 # ============================================================================

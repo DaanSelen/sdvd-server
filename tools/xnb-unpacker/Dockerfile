@@ -2,7 +2,8 @@
 # Note: Debian is chosen over Alpine because Mesa/X11 libraries and glibc dependencies
 # are required by StardewXnbHack. Alpine would need extra compatibility layers and
 # end up larger and more complex.
-FROM debian:bullseye-slim
+FROM debian:trixie-slim
+WORKDIR /tmp
 
 # Install required packages and clean up apt cache in a single layer
 RUN apt-get update && \
@@ -15,8 +16,6 @@ RUN apt-get update && \
     mesa-utils \
     x11-utils \
     && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /tmp
 
 # Download and extract the latest StardewXnbHack Linux release
 RUN set -e; \

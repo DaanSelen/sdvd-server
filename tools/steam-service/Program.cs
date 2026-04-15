@@ -197,7 +197,7 @@ async Task DownloadAllAsync()
     catch (Exception ex)
     {
         Logger.Log($"[SteamService] Download attempt failed: {ex.Message}");
-        throw;
+        Environment.Exit(1);
     }
 
     // Also download Steamworks SDK for GameServer mode (unless --skip-sdk)
@@ -214,7 +214,7 @@ async Task DownloadAllAsync()
         catch (Exception ex)
         {
             Logger.Log($"[SteamService] Download attempt failed: {ex.Message}");
-            throw;
+            Environment.Exit(1);
         }
     }
 }

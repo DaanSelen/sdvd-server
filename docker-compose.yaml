@@ -18,15 +18,15 @@ services:
       # Required to sync time, ensures GOG GalaxyAuth works
       - SYS_TIME
     volumes:
-      - game-data:/data/game
-      - saves:/config/xdg/config/StardewValley
-      - ./.local-container/settings:/data/settings
+      - ./game-data:/data/game
+      - ./saves:/config/xdg/config/StardewValley
+      - ./settings:/data/settings
     environment:
       # Steam auth service URL (for runtime ticket requests)
       STEAM_AUTH_URL: "http://steam-service:3001"
       # Server configuration
       VNC_PASSWORD: "${VNC_PASSWORD:-sdvd-server}"
-      DISABLE_RENDERING: "${DISABLE_RENDERING:-true}"
+      DISABLE_RENDERING: "false" #"${DISABLE_RENDERING:-true}"
       # Game settings file path (auto-created with defaults if missing)
       SETTINGS_PATH: "/data/settings/server-settings.json"
       # HTTP API for external tools and automation
@@ -53,8 +53,8 @@ services:
     expose:
       - "3001"
     volumes:
-      - steam-session:/data/steam-session
-      - game-data:/data/game
+      - ./steam-session:/data/steam-session
+      - ./game-data:/data/game
     environment:
       PORT: "3001"
       GAME_DIR: "/data/game"
@@ -64,32 +64,32 @@ services:
       STEAM_REFRESH_TOKEN: "${STEAM_REFRESH_TOKEN:-}"
     restart: unless-stopped
 
-  # Discord bot for server status display and chat relay
-  discord-bot:
-    build:
-      context: ./tools/discord-bot
-      dockerfile: Dockerfile
-    image: sdvd/discord-bot:local
-    container_name: sdvd-discord-bot
-    environment:
-      DISCORD_BOT_TOKEN: "${DISCORD_BOT_TOKEN:-}"
-      # HTTP API URL for fetching server status
-      API_URL: "http://server:8080"
-      # Min 20s to respect Discord rate limits, default 30s
-      UPDATE_INTERVAL_MS: "30000"
-      # Bot nickname (optional, falls back to farm name)
-      DISCORD_BOT_NICKNAME: "${DISCORD_BOT_NICKNAME:-}"
-      # Channel ID for two-way chat relay (optional)
-      DISCORD_CHAT_CHANNEL_ID: "${DISCORD_CHAT_CHANNEL_ID:-}"
-      # API key (must match server's API_KEY if set)
-      API_KEY: "${API_KEY:-}"
-    depends_on:
-      - server
-    # on-failure: won't restart when disabled (exit 0), will restart on crashes
-    restart: on-failure
+#  # Discord bot for server status display and chat relay
+#  discord-bot:
+#    build:
+#      context: ./tools/discord-bot
+#      dockerfile: Dockerfile
+#    image: sdvd/discord-bot:local
+#    container_name: sdvd-discord-bot
+#    environment:
+#      DISCORD_BOT_TOKEN: "${DISCORD_BOT_TOKEN:-}"
+#      # HTTP API URL for fetching server status
+#      API_URL: "http://server:8080"
+#      # Min 20s to respect Discord rate limits, default 30s
+#      UPDATE_INTERVAL_MS: "30000"
+#      # Bot nickname (optional, falls back to farm name)
+#      DISCORD_BOT_NICKNAME: "${DISCORD_BOT_NICKNAME:-}"
+#      # Channel ID for two-way chat relay (optional)
+#      DISCORD_CHAT_CHANNEL_ID: "${DISCORD_CHAT_CHANNEL_ID:-}"
+#      # API key (must match server's API_KEY if set)
+#      API_KEY: "${API_KEY:-}"
+#    depends_on:
+#      - server
+#    # on-failure: won't restart when disabled (exit 0), will restart on crashes
+#    restart: on-failure
 
-volumes:
-  steam-session:
-  game-data:
-  saves:
-  settings:
+#volumes:
+#  steam-session:
+#  game-data:
+#  saves:
+#  settings:
