@@ -33,7 +33,10 @@ RUN --mount=type=secret,id=steam_username \
     if [ -f /run/secrets/steam_password ]; then export STEAM_PASSWORD="$(cat /run/secrets/steam_password)"; fi && \
     if [ -f /run/secrets/steam_refresh_token ]; then export STEAM_REFRESH_TOKEN="$(cat /run/secrets/steam_refresh_token)"; fi && \
     export GAME_DIR=/game && \
-    dotnet SteamService.dll download --skip-sdk
+    until dotnet SteamService.dll download --skip-sdk; do \
+        echo "Failed, trying again..."; \
+        sleep 1; \
+    done
 
 # Download and install SMAPI
 RUN curl -L "https://github.com/Pathoschild/SMAPI/releases/download/${SMAPI_VERSION}/SMAPI-${SMAPI_VERSION}-installer.zip" -o /tmp/smapi.zip && \
@@ -105,7 +108,7 @@ RUN --mount=type=cache,target=/root/.nuget/packages \
 # ============================================================================
 # Stage 4: Final runtime image (no game files, downloads on first run)
 # ============================================================================
-FROM --platform=$BUILDPLATFORM jlesage/baseimage-gui:debian-13-v4.11.3 AS server
+FROM jlesage/baseimage-gui:debian-13-v4.11.3 AS server
 
 ARG SMAPI_VERSION
 
@@ -120,44 +123,37 @@ ENV APP_NAME="Stardew Dedicated Server" \
     DEBIAN_FRONTEND=noninteractive \
     TERMINAL=xterm \
     DARK_MODE=1 \
-    # Display
     DISPLAY=:0 \
     DISPLAY_HEIGHT=800 \
     DISPLAY_WIDTH=1280 \
     DISABLE_RENDERING=true \
-    # SMAPI
     SMAPI_USE_CURRENT_SHELL=true \
     SMAPI_VERSION=${SMAPI_VERSION} \
     SMAPI_MODS_PATH=/data/Mods
 
 # Install all apt packages in one layer to reduce image size and layers
 RUN apt-get update && apt-get install -y \
-    # Base packages
     ca-certificates \
     curl \
     locales \
     procps \
     unzip \
     x11-utils \
-    # GUI packages
     polybar \
     rofi \
     slop \
     wmctrl \
     xwallpaper \
-    # Additional packages
     eza \
     htop \
     nano \
     scrot \
     tcpdump \
-    # TigerVNC
     tigervnc-standalone-server \
     && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen \
-    # Configure TigerVNC
+    && mkdir -p /opt/base/bin/ \
     && cp /usr/bin/Xvnc /opt/base/bin/Xvnc \
-    # Clean up apt cache
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

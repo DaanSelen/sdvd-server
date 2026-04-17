@@ -132,6 +132,8 @@ init_stardew() {
         done
 
         echo "Game files detected!"
+    else
+        echo "Game files detected!"
     fi
 
     # Symlink the game directory to expected location
@@ -218,22 +220,22 @@ init_steam_sdk() {
     echo "413150" > "${GAME_DEST_DIR}/steam_appid.txt"
 }
 
-init_gui() {
+#init_gui() {
     # Always start polybar for the rendering toggle button
-    /etc/services.d/polybar/run &
+#    /etc/services.d/polybar/run &
 
-    if [ "$DISABLE_RENDERING" != "true" ]; then
-        if [ -e "/data/images/wallpaper-junimo-server.png" ]; then
-            xwallpaper --zoom /data/images/wallpaper-junimo-server.png
-        fi
+#    if [ "$DISABLE_RENDERING" != "true" ]; then
+#        if [ -e "/data/images/wallpaper-junimo-server.png" ]; then
+#            xwallpaper --zoom /data/images/wallpaper-junimo-server.png
+#        fi
 
-        bash /root/.config/polybar/shades/scripts/colors-dark.sh --light-green
-    fi
-}
+#        bash /root/.config/polybar/shades/scripts/colors-dark.sh --light-green
+#    fi
+#}
 
 # Prepare
 init_time_sync
-init_gui
+#init_gui
 init_xauthority
 init_stardew
 init_steam_sdk
@@ -258,9 +260,10 @@ mkfifo "${INPUT_FIFO}"
 # Using 'script' to create a PTY so SMAPI outputs colors (thinks it's a terminal)
 # Using tail -f on the FIFO to keep it open and avoid blocking
 # Note: 'script' writes to both stdout (for docker logs) and the typescript file simultaneously
-script -q -f --return -c "tail -f \"${INPUT_FIFO}\" | \"${SMAPI_EXECUTABLE}\"" "${LOG_FILE}" &
-SMAPI_PID=$!
+#script -q -f --return -c "tail -f \"${INPUT_FIFO}\" | \"${SMAPI_EXECUTABLE}\"" "${LOG_FILE}" &
+#SMAPI_PID=$!
 
 # Wait for SMAPI process to exit (when it exits, the server has stopped)
-wait $SMAPI_PID
+#wait $SMAPI_PID
+exec "${SMAPI_EXECUTABLE}"
 echo "Server session ended"

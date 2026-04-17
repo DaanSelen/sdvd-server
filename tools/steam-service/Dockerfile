@@ -1,6 +1,10 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
+RUN apt-get update && \
+    apt-get install -y \
+      curl
+
 COPY . .
 RUN dotnet restore && \
     dotnet publish -c Release -o /app

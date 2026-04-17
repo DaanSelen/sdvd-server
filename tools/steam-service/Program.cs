@@ -66,7 +66,20 @@ switch (command)
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
             var response = await http.GetAsync($"http://localhost:{port}/health");
-            Environment.Exit(response.IsSuccessStatusCode ? 0 : 1);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Environment.Exit(1);
+            }
+
+            var body = await response.Content.ReadAsStringAsync();
+
+            using var json = System.Text.Json.JsonDocument.Parse(body);
+            var root = json.RootElement;
+
+            var loggedIn = root.GetProperty("logged_in").GetBoolean();
+
+            Environment.Exit(loggedIn ? 0 : 1);
         }
         catch
         {
